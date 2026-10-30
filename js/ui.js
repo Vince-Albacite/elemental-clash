@@ -1,5 +1,5 @@
 let sendIntentToHost = function () {};
-let lastSeenEventSeq = 0, dragState = null, sessionMode = 'menu', lastEnvElement = -2, countdownTimers = [], confirmCallback = null, noticeTimerId = 0, deckReadyAt = 0, scoreSignature = '', litTimers = {}, stackOfCard = {}, latestHand = [];
+let lastSeenEventSeq = 0, dragState = null, sessionMode = 'menu', lastEnvElement = -2, countdownTimers = [], confirmCallback = null, noticeTimerId = 0, deckReadyAt = 0, scoreSignature = '', litTimers = {}, stackOfCard = {}, latestHand = [], pileKey = '', hintTimerId = 0, lastHandCount = -1, lastHeavyEffectAt = 0;
 function getEl(id) { return document.getElementById(id); }
 function setEnvironmentElement(element) {
   if (element === lastEnvElement) return;
@@ -10,6 +10,7 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(function (s) { s.classList.toggle('on', s.id === id); });
   if (id !== 'game' && id !== 'results') setEnvironmentElement(-1);
   if (id !== 'game') switchMusicToTrack(MENU_TRACK_INDEX);
+  if (id === 'game') enableMatchGuard(); else disableMatchGuard();
 }
 function isScreenShown(id) { return getEl(id).classList.contains('on'); }
 function renderIconPreview(icon) { getEl('icon_preview').innerHTML = buildFaceSvg(icon); }
@@ -55,8 +56,11 @@ function syncHandCards(hand, last) {
   latestHand = hand; assignCardStacks(hand); removeCardElementsNotInHand(hand); placeCardElements(hand); updateLockedCards(last);
 }
 function swapHandStacks() { swapStackAssignments(); placeCardElements(latestHand); }
+/* The pile card is rebuilt only when the last card really changes (not on every snapshot). */
 function renderPileCard(last) {
-  const pile = getEl('pile'); pile.textContent = '';
+  const pile = getEl('pile'), key = last ? last.n + ':' + last.e : '';
+  if (key === pileKey) return;
+  pileKey = key; pile.textContent = '';
   if (!last) return;
   const card = createCardElement({ id: 0, n: last.n, e: last.e }); card.classList.add('big'); pile.appendChild(card);
 }
@@ -97,6 +101,7 @@ function pickParticleSpawnPoint() {
 }
 function getOutwardAngle(spot) { return Math.atan2(spot.y - spot.cy, spot.x - spot.cx); }
 function spawnFloatAt(x, y, text, element, rx, ry, extraClass) {
+  if (!canSpawnParticle(1)) return;
   const el = createTextElement('div', text, 'float e' + element + (extraClass ? ' ' + extraClass : ''));
   el.style.left = x + 'px'; el.style.top = y + 'px'; el.style.setProperty('--rx', rx + 'px'); el.style.setProperty('--ry', ry + 'px');
   el.addEventListener('animationend', function () { el.remove(); });
@@ -114,6 +119,7 @@ function lightUpScoreContainer(pid, element) {
   clearTimeout(litTimers[pid]); litTimers[pid] = setTimeout(function () { item.classList.remove('lit'); }, 1200);
 }
 function spawnBurstDots(element, spot) {
+  if (!canSpawnParticle(6)) return;
   const base = getOutwardAngle(spot);
   for (let i = 0; i < 6; i++) {
     const dot = document.createElement('div'), a = base + (i / 5 - 0.5) * 2;
@@ -124,6 +130,7 @@ function spawnBurstDots(element, spot) {
   }
 }
 function spawnGoldSparkles(spot, stack) {
+  if (!canSpawnParticle(6 + stack * 3)) return;
   const base = getOutwardAngle(spot);
   for (let i = 0; i < 6 + stack * 3; i++) {
     const dot = document.createElement('div'), a = base + (Math.random() - 0.5) * 2.4, dist = 30 + Math.random() * 40;
@@ -135,14 +142,18 @@ function spawnGoldSparkles(spot, stack) {
 }
 function getPlayerName(players, pid) { return players[pid] ? cleanName(players[pid].name) : 'Player'; }
 /* Name + points pop above the container; ADVANTAGE xN appears with the burst near the pile. */
+/* Popups and glow always show; sounds and bursts are rate limited so a backlog of events can never freeze a device. */
 function showEventEffects(event, players) {
-  const name = getPlayerName(players, event.pid), spot = pickParticleSpawnPoint(), a = getOutwardAngle(spot);
-  playElementSfx(event.e); switchMusicToElement(event.e);
-  if (event.weakness) playWeaknessSfx();
-  spawnBurstDots(event.e, spot);
+  const name = getPlayerName(players, event.pid), now = performance.now(), heavy = now - lastHeavyEffectAt >= EFFECT_MIN_GAP_MS;
+  if (heavy) lastHeavyEffectAt = now;
+  switchMusicToElement(event.e);
   showScorePopup(event.pid, name + '\n+' + event.gain, event.e);
   if (event.bonus > 0) showScorePopup(event.bonusTo, getPlayerName(players, event.bonusTo) + '\n+' + event.bonus, event.e);
   if (event.boost) lightUpScoreContainer(event.pid, event.e);
+  if (!heavy) return;
+  const spot = pickParticleSpawnPoint(), a = getOutwardAngle(spot);
+  playElementSfx(event.e); if (event.weakness) playWeaknessSfx();
+  spawnBurstDots(event.e, spot);
   if (event.boost) playStackChime(event.stack);
   if (event.boost && event.stack > 1) {
     spawnFloatAt(spot.x, spot.y, name + '\nADVANTAGE\nx' + event.stack, event.e, Math.round(Math.cos(a) * 40), Math.round(Math.sin(a) * 40), 'stack');
@@ -167,7 +178,7 @@ function renderGameScreen(snap) {
   getEl('timer').textContent = formatClock(snap.left); getEl('btn_pause').hidden = sessionMode !== 'single';
   setEnvironmentElement(snap.last ? snap.last.e : -1);
   renderScores(snap.players, snap.me); renderPileCard(snap.last); syncHandCards(snap.hand, snap.last);
-  renderDeckButton(snap.hand.length); handleNewEvent(snap);
+  renderDeckButton(snap.hand.length); checkOutOfCardsHint(snap.hand.length); handleNewEvent(snap);
 }
 function createUsageChips(used) {
   const frag = document.createDocumentFragment();
@@ -190,7 +201,7 @@ function renderResults(snap) {
 }
 function renderSnapshot(snap) {
   if (snap.over) { cancelCountdown(); renderResults(snap); showScreen('results'); return; }
-  if (!isScreenShown('game')) { showScreen('game'); if (snap.startsInMs > 0) startCountdownOverlay(snap.startsInMs); }
+  if (!isScreenShown('game')) { lastHandCount = -1; pileKey = ''; showScreen('game'); if (snap.startsInMs > 0) startCountdownOverlay(snap.startsInMs); }
   renderGameScreen(snap);
 }
 function createSeatButton(label, act, seat) {
@@ -215,21 +226,29 @@ function renderLobby(view, you, isHost) {
   getEl('btn_start').hidden = !isHost; getEl('invite_box').hidden = !isHost; getEl('btn_ready').hidden = isHost;
   if (isHost) getEl('btn_start').disabled = !isLobbyStartable(view);
 }
-function resetDraggedCard() { dragState.el.style.transform = ''; dragState.el.classList.remove('drag'); dragState = null; }
+function resetDraggedCard() {
+  if (!dragState) return;
+  dragState.el.style.transform = ''; dragState.el.classList.remove('drag'); dragState = null;
+}
 function markCardSentTemporarily(el) { el.classList.add('sent'); setTimeout(function () { el.classList.remove('sent'); }, 600); }
 function shakeCard(el) { el.classList.add('shake'); setTimeout(function () { el.classList.remove('shake'); }, 260); }
 function onHandPointerDown(e) {
-  const card = e.target.closest('.card'); if (!card || dragState) return;
+  if (e.button > 0) return; /* ignore right and middle mouse buttons */
+  const card = e.target.closest('.card'); if (!card) return;
+  if (dragState) resetDraggedCard(); /* a stale drag must never block a new gesture (this was the freeze) */
   dragState = { el: card, x: e.clientX, y: e.clientY, id: Number(card.dataset.id), pid: e.pointerId };
-  card.setPointerCapture(e.pointerId); card.classList.add('drag');
+  card.classList.add('drag');
+  try { card.setPointerCapture(e.pointerId); } catch (err) { /* the window listeners still end the drag */ }
 }
 function onHandPointerMove(e) {
   if (!dragState || e.pointerId !== dragState.pid) return;
   dragState.el.style.transform = 'translate(' + (e.clientX - dragState.x) + 'px,' + Math.min(SWIPE_DOWN_PREVIEW_PX, e.clientY - dragState.y) + 'px)';
 }
-/* Only unlocked cards of the front row can be thrown. */
+/* Only unlocked cards of the front row can be thrown; a swipe up on a back row card explains why not. */
 function throwDraggedCard(el, id) {
-  if (el.parentNode.id !== 'hand_front' || el.classList.contains('locked')) { shakeCard(el); return; }
+  const row = el.parentNode ? el.parentNode.id : '';
+  if (row === 'hand_back') { shakeCard(el); showHint(HINT_TEXTS.backRow); return; }
+  if (row !== 'hand_front' || el.classList.contains('locked')) { shakeCard(el); return; }
   markCardSentTemporarily(el); sendIntentToHost({ t: 'throw', id: id });
 }
 /* Swipe up = throw, swipe down = swap front and back rows. */
@@ -240,10 +259,14 @@ function onHandPointerUp(e) {
   if (dy < -SWIPE_THROW_PX) throwDraggedCard(el, id); else if (dy > SWIPE_THROW_PX) swapHandStacks();
 }
 function onHandPointerCancel() { if (dragState) resetDraggedCard(); }
+/* Start on the hand, finish on the window, so the drag always ends even if the card element is moved or removed mid-gesture. */
 function attachHandGestures() {
   const hand = getEl('hand');
-  hand.addEventListener('pointerdown', onHandPointerDown); hand.addEventListener('pointermove', onHandPointerMove);
-  hand.addEventListener('pointerup', onHandPointerUp); hand.addEventListener('pointercancel', onHandPointerCancel);
+  hand.addEventListener('pointerdown', onHandPointerDown);
+  hand.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  window.addEventListener('pointermove', onHandPointerMove); window.addEventListener('pointerup', onHandPointerUp);
+  window.addEventListener('pointercancel', onHandPointerCancel); window.addEventListener('blur', onHandPointerCancel);
+  document.addEventListener('visibilitychange', onHandPointerCancel);
 }
 
 const GUIDE_THROW_SVG = '<svg viewBox="0 0 330 130" class="guide_svg" aria-hidden="true"><rect x="24" y="44" width="46" height="60" rx="8" class="g_card"/><path d="M47 38V10M38 20l9-10 9 10" class="g_line"/><text x="47" y="124" text-anchor="middle" class="g_label">Up: throw</text><rect x="130" y="20" width="46" height="60" rx="8" class="g_card"/><path d="M153 86v28M144 104l9 10 9-10" class="g_line"/><text x="153" y="124" text-anchor="middle" class="g_label">Down: swap</text><rect x="236" y="44" width="46" height="60" rx="8" class="g_deck"/><text x="259" y="124" text-anchor="middle" class="g_label">Tap: draw</text></svg>';
@@ -379,3 +402,13 @@ function buildMiniCycleSvg() {
   return s + '</svg>';
 }
 function renderMiniCycle() { getEl('mini_cycle').innerHTML = buildMiniCycleSvg(); }
+function canSpawnParticle(count) { return getEl('fx').childElementCount + count <= MAX_PARTICLES; }
+/* Semi-opaque hint that fades in over the hand area and fades out by itself. */
+function showHint(text) {
+  const hint = getEl('hint'); hint.textContent = text; hint.classList.add('show');
+  clearTimeout(hintTimerId); hintTimerId = setTimeout(function () { hint.classList.remove('show'); }, HINT_VISIBLE_MS);
+}
+function checkOutOfCardsHint(handCount) {
+  if (handCount === 0 && lastHandCount > 0) showHint(HINT_TEXTS.outOfCards);
+  lastHandCount = handCount;
+}

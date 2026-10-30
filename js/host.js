@@ -2,12 +2,24 @@ let hostState = null, hostTickId = 0, lastPushAt = 0, throwQueue = [], flushSche
 let peerChannels = [null, null, null, null], playerChannels = [], pidOfSeat = {};
 let lobbySeats = [null, null, null, null], pendingInvite = null, peerPcs = [null, null, null, null], inviteToken = 0;
 function isChannelOpen(ch) { return !!ch && ch.readyState === 'open'; }
+let pushScheduled = false;
+/* Full-state snapshots: if a client's send buffer is backed up, skip this one (the next replaces it) instead of queuing a burst. */
+function sendSnapshotTo(ch, snap) {
+  if (!isChannelOpen(ch)) return;
+  if (ch.bufferedAmount > MAX_BUFFERED_BYTES && !snap.over) return;
+  ch.send(JSON.stringify({ t: 'snap', s: snap }));
+}
 function pushSnapshots() {
-  lastPushAt = Date.now();
+  lastPushAt = Date.now(); pushScheduled = false;
   hostState.players.forEach(function (p, pid) {
     const snap = makeSnapshotFor(hostState, pid);
-    if (pid === 0) renderSnapshot(snap); else sendJson(playerChannels[pid], { t: 'snap', s: snap });
+    if (pid === 0) renderSnapshot(snap); else sendSnapshotTo(playerChannels[pid], snap);
   });
+}
+function requestSnapshotPush() {
+  if (pushScheduled) return;
+  pushScheduled = true;
+  setTimeout(function () { if (pushScheduled && hostState) pushSnapshots(); }, SNAPSHOT_COALESCE_MS);
 }
 function flushThrowQueue() {
   flushScheduled = false;
@@ -18,7 +30,10 @@ function enqueueThrow(pid, cardId, arrivalMs) {
   throwQueue.push({ pid: pid, cardId: cardId, t: arrivalMs });
   if (!flushScheduled) { flushScheduled = true; setTimeout(flushThrowQueue, TIE_WINDOW_MS); }
 }
-function drawForPlayer(pid) { if (applyDraw(hostState, pid, Date.now())) pushSnapshots(); }
+function drawForPlayer(pid) {
+  if (!applyDraw(hostState, pid, Date.now())) return;
+  if (hostState.players[pid].isBot) requestSnapshotPush(); else pushSnapshots(); /* humans see their draw at once, bot draws are merged */
+}
 function receiveIntentFromPlayer(pid, intent) {
   if (!hostState || hostState.over) return;
   if (intent.t === 'throw' && Number.isInteger(intent.id)) enqueueThrow(pid, intent.id, Date.now());

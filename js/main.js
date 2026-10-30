@@ -77,5 +77,5 @@ function bindAudioControls() {
   document.addEventListener('click', function (e) { if (e.target.closest('button')) playMenuSfx(); });
 }
 function main() {
-  applyElementColors(); renderIconPreview(playerProfile.icon); bindMenuButtons(); bindLobbyControls(); bindSoloControls(); bindAudioControls(); attachHandGestures(); buildGuide(); renderMiniCycle();
+  applyElementColors(); renderIconPreview(playerProfile.icon); bindMenuButtons(); bindLobbyControls(); bindSoloControls(); bindAudioControls(); bindMatchGuard(); attachHandGestures(); buildGuide(); renderMiniCycle();
 }

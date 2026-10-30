@@ -127,3 +127,18 @@ h3{font-family:var(--font_title);color:var(--text_header);margin:0}
 #bot_picker_list{max-height:50vh;overflow-y:auto}
 #bot_picker_list li{cursor:pointer}#bot_picker_list li.taken{opacity:.4;cursor:default}
 .grow{flex:1}
+/* layout never changes when the hand runs out: fixed height, rows pinned */
+#hand{position:relative;flex:none;height:calc(var(--card_h) + var(--peek))}
+#hand_back{position:absolute;top:0;left:0;right:0;margin:0}
+#hand_front{position:absolute;top:var(--peek);left:0;right:0}
+.score{border:1px solid transparent}
+/* hint */
+#hint{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:4;max-width:90%;padding:10px 16px;border-radius:var(--radius);background:rgba(10,10,20,.72);border:1px solid var(--accent);text-align:center;opacity:0;transition:opacity .35s ease;pointer-events:none}
+#hint.show{opacity:1}
+/* match guard and gesture safety */
+html.in_match,html.in_match body{overscroll-behavior:none}
+#game{touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+/* lag fixes: cheap env layers (gradient vignette instead of blurred inset shadow, own compositor layer), 10 fps text shimmer, paused where unseen */
+.env_layer{box-shadow:none;background:radial-gradient(circle at 50% 38%,var(--b),transparent 60%),radial-gradient(ellipse at 50% 50%,transparent 55%,var(--a) 135%);will-change:opacity;transform:translateZ(0)}
+.num{animation-timing-function:steps(24)}
+#hand_back .num,.card.locked .num{animation-play-state:paused}

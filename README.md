@@ -46,3 +46,12 @@ No STUN or TURN server is used, so all devices must share the hotspot or Wi-Fi.
 - Play vs Computer opens a setup lobby: pick 1 to 3 bots (Random or Choose from BOT_PROFILES), Start, Back. The match offers Pause (Resume, Back to Setup, Quit to Menu) and ends with Back to Setup.
 - Bot risk throw (js/bots.js, numbers in BOT_PROFILES): when a bot's hand is at HAND_SIZE, no card in it counters the last element and it holds plain or weakness-draw cards numbered `riskMinNumber` or higher, it gambles on the biggest one with chance `riskTolerance`.
 - Without a usable counter and with room left in the hand, bots draw to hunt for one (less often for more random characters).
+
+## Why invite codes cannot be 6 characters
+Two browsers can only connect directly if they swap their ICE credentials, the DTLS certificate fingerprint (SHA-256 = 256 bits) and an address with port. The fingerprint alone is about 43 characters, so the current ~90 character code is already close to the minimum. 6 characters hold about 31 to 36 bits. A 6 character room code only works with a lookup service that stores the full offer under that code (a server plus storage, or a third party broker). That conflicts with the Vercel-only, no-database rule.
+
+## Match guard (js/guard.js)
+During a match the page blocks F5, Ctrl+R, Cmd+R, Alt+Left, Cmd+[, traps the Back button, disables pull-to-refresh and shows the browser's leave confirmation on reload or close. Browsers do not allow a page to truly disable these buttons; the confirmation can always be accepted.
+
+## Performance limits (js/config.js)
+MAX_ACTIVE_TRACKS, MUSIC_SWITCH_MIN_MS, MAX_PARTICLES, EFFECT_MIN_GAP_MS, SNAPSHOT_COALESCE_MS, MAX_BUFFERED_BYTES.

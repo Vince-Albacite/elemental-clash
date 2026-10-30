@@ -122,11 +122,13 @@ function scheduleLayerStep(layer, trackIndex, when) {
   if (semi >= 0) VOICES[layer.voice](dest, when, semitoneToFrequency(layer.base, semi), layer.vol, layer.len * STEP_SECONDS, layer.wave);
 }
 /* Tracks that are faded out are not scheduled at all, which keeps CPU use low on old devices. */
+function listActiveTracks() {
+  return TRACKS.map(function (t, i) { return i; }).filter(function (i) { return trackLevels[i] >= 0.05; })
+    .sort(function (a, b) { return trackLevels[b] - trackLevels[a]; }).slice(0, MAX_ACTIVE_TRACKS);
+}
+/* Only the loudest MAX_ACTIVE_TRACKS tracks are scheduled, so rapid element changes can never stack 4 tracks of voices. */
 function scheduleStepOnTracks(when) {
-  TRACKS.forEach(function (track, i) {
-    if (trackLevels[i] < 0.02) return;
-    track.layers.forEach(function (layer) { scheduleLayerStep(layer, i, when); });
-  });
+  listActiveTracks().forEach(function (i) { TRACKS[i].layers.forEach(function (layer) { scheduleLayerStep(layer, i, when); }); });
 }
 function smoothTrackLevels() {
   trackLevels = trackLevels.map(function (level, i) { const d = trackTargets[i] - level; return Math.abs(d) < 0.02 ? trackTargets[i] : level + d * 0.3; });
@@ -171,12 +173,22 @@ function ensureAudioStarted() {
   setInterval(runMusicScheduler, 100);
 }
 /* One crossfade algorithm for everything: menu theme, element themes, silence (-1). */
+let musicSwitchAt = 0, pendingMusicElement = -1, musicSwitchTimer = 0;
 function switchMusicToTrack(index) {
+  clearTimeout(musicSwitchTimer); musicSwitchTimer = 0;
   if (!audioCtx) return;
   trackTargets = TRACKS.map(function (t, i) { return i === index ? 1 : 0; });
   trackGains.forEach(function (g, i) { g.gain.setTargetAtTime(trackTargets[i], audioCtx.currentTime, 0.4); });
 }
-function switchMusicToElement(element) { switchMusicToTrack(element); }
+/* Element changes happen on almost every throw; music only follows them at most once per MUSIC_SWITCH_MIN_MS. */
+function requestMusicElement(element) {
+  const wait = MUSIC_SWITCH_MIN_MS - (Date.now() - musicSwitchAt);
+  if (wait <= 0) { musicSwitchAt = Date.now(); switchMusicToTrack(element); return; }
+  pendingMusicElement = element;
+  if (musicSwitchTimer) return;
+  musicSwitchTimer = setTimeout(function () { musicSwitchTimer = 0; musicSwitchAt = Date.now(); switchMusicToTrack(pendingMusicElement); }, wait);
+}
+function switchMusicToElement(element) { requestMusicElement(element); }
 function silenceMusic() { switchMusicToTrack(-1); }
 function setVolume(kind, value) {
   volumes[kind] = value;
