@@ -3,74 +3,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Elemental Clash</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<button id="btn_audio" class="small" aria-label="Audio settings">
-<svg viewBox="0 0 24 24" width="20" height="20"><path d="M3 9v6h4l5 4V5L7 9z" fill="#e8e8f2"/><path d="M15 8q3 4 0 8M18 5q6 7 0 14" stroke="#e8e8f2" fill="none" stroke-width="2"/></svg></button>
-<div id="audio_panel" hidden>
-<label>Master <input type="range" id="vol_master" min="0" max="1" step="0.05" value="0.8"></label>
-<label>Music <input type="range" id="vol_music" min="0" max="1" step="0.05" value="0.5"></label>
-<label>SFX <input type="range" id="vol_sfx" min="0" max="1" step="0.05" value="0.8"></label>
-</div>
-
-<main id="menu" class="screen on">
-<h1>Elemental Clash: A Card Game</h1>
-<h3>Swipe Cards. Mind the Colors.</h3>
-<div id="icon_preview" class="face_wrap big_face"></div>
-<div class="row">
-<button class="small icon_btn" data-part="c">Color</button>
-<button class="small icon_btn" data-part="e">Eyes</button>
-<button class="small icon_btn" data-part="m">Mouth</button></div>
-<input id="player_name" maxlength="12" value="Player" aria-label="Name">
-<label>Match length
-<select id="duration"><option value="30">30 seconds</option><option value="60" selected>1 minute</option><option value="180">3 minutes</option><option value="300">5 minutes</option></select></label>
-<button id="btn_single">Play vs Computer</button>
-<button id="btn_multi">Local Multiplayer</button>
-</main>
-
-<section id="mp" class="screen">
-<h2>Local Multiplayer</h2>
-<p>Everyone joins the same hotspot. No internet service is used to connect.</p>
-<button id="btn_create_room">Create Room</button>
-<button id="btn_join_room">Join Room</button>
-<button class="back">Back</button>
-</section>
-
-<section id="join" class="screen">
-<h2>Join Room</h2>
-<p>1. Paste the host code. 2. Send the answer code back to the host.</p>
-<textarea id="join_offer" placeholder="Host code"></textarea>
-<button id="btn_make_answer">Make Answer Code</button>
-<textarea id="join_answer" readonly placeholder="Answer code appears here"></textarea>
-<p id="join_status"></p>
-<button class="back">Back</button>
-</section>
-
-<section id="lobby" class="screen">
-<h2>Lobby</h2>
-<ul id="lobby_seats"></ul>
-<div id="invite_box" hidden>
-<button id="btn_invite">Invite Player</button>
-<textarea id="invite_offer" readonly placeholder="Send this code to the joiner"></textarea>
-<textarea id="invite_answer" placeholder="Paste the joiner answer code"></textarea>
-<button id="btn_connect">Connect</button></div>
-<p id="lobby_status"></p>
-<button id="btn_ready">Ready</button>
-<button id="btn_start" hidden>Start</button>
-</section>
-
-<section id="game" class="screen">
-<div id="timer">0:00</div>
-<div id="scores"></div>
-<div id="pile_zone"><div id="pile"></div><div id="fx"></div>
-<button id="btn_deck" class="card_back">Deck</button></div>
-<div id="hand"></div>
-</section>
-
-<section id="results" class="screen">
-<h2>Final Ranking</h2>
-<ol id="rank_list"></ol>
-<button id="btn_results_menu">Menu</button>
-</section>
-
+<!-- Launcher only: every screen lives in screens/*.html and is loaded by js/launcher.js -->
+<div id="app"></div>
+<noscript>This game needs JavaScript.</noscript>
 <script src="js/config.js"></script>
 <script src="js/cards.js"></script>
 <script src="js/scoring.js"></script>
@@ -82,5 +17,7 @@
 <script src="js/ui.js"></script>
 <script src="js/host.js"></script>
 <script src="js/client.js"></script>
+<script src="js/solo.js"></script>
 <script src="js/main.js"></script>
+<script src="js/launcher.js"></script>
 </body></html>
