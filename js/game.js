@@ -15,7 +15,7 @@ function recordThrownCard(state, pid, card) {
   state.last = { n: card.n, e: card.e, owner: pid };
   state.scoringPrev = card.n === 0 ? null : state.last; /* a 0 card dispels the previous element */
 }
-function calcStackMultiplier(streak) { return Math.min(ADVANTAGE_STACK_MAX, 1 + (streak - 1) * ADVANTAGE_STACK_BOOST); }
+function calcStackMultiplier(streak) { return Math.min(ADVANTAGE_STACK_MAX, (streak - 1) * ADVANTAGE_STACK_BOOST); }
 /* Consecutive advantage draws by one player stack; any other draw by that player resets the streak. */
 function updateAdvantageStreak(player, result) {
   player.advStreak = result.boost ? player.advStreak + 1 : 0;

@@ -326,8 +326,8 @@ function buildDrawChips(kind, prev, next) {
   if (kind === 'wild') row.appendChild(createChip(ZERO_WILD_VALUE.enabled ? ZERO_WILD_VALUE.min + '-' + ZERO_WILD_VALUE.max : '+0'));
   else if (kind !== 'locked') {
     const r = scoreThrow({ n: prev.n, e: prev.e, owner: 0 }, next, 1);
-    row.appendChild(createChip('+' + r.gain));
-    if (r.bonus > 0) row.appendChild(createChip('prev +' + r.bonus));
+    row.appendChild(createChip('player card: +' + r.gain));
+    if (r.bonus > 0) row.appendChild(createChip('owner of previous card: +' + r.bonus));
     if (kind === 'advantage') row.appendChild(createChip('x' + calcStackMultiplier(2)));
   }
   return row;
