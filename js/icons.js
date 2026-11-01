@@ -20,17 +20,17 @@ const ICON_MOUTHS = [
   '<path d="M16 35h24v4q-12 8-24 0z" fill="#fff" stroke="#222" stroke-width="2"/><path d="M28 35v8" stroke="#222" stroke-width="2"/>',
   '<path d="M20 38q4 5 8 0q4 5 8 0" ' + INK + '/>',
   '<path d="M20 41q10 2 18-6" ' + INK + '/>'];
-function clampIndex(value, length) { const n = Number(value); return Number.isInteger(n) && n >= 0 && n < length ? n : 0; }
+function clampIndex(value, length) { const numericValue = Number(value); return Number.isInteger(numericValue) && numericValue >= 0 && numericValue < length ? numericValue : 0; }
 function cleanIcon(icon) {
-  const i = icon || {};
-  return { c: clampIndex(i.c, ICON_COLORS.length), e: clampIndex(i.e, ICON_EYES.length), m: clampIndex(i.m, ICON_MOUTHS.length) };
+  const safeIcon = icon || {};
+  return { colorIndex: clampIndex(safeIcon.colorIndex, ICON_COLORS.length), eyesIndex: clampIndex(safeIcon.eyesIndex, ICON_EYES.length), mouthIndex: clampIndex(safeIcon.mouthIndex, ICON_MOUTHS.length) };
 }
 function cleanName(text) { return String(text || '').replace(/[^A-Za-z0-9 _-]/g, '').trim().slice(0, 12) || 'Player'; }
 function stepIconPart(icon, part, direction) {
-  const length = { c: ICON_COLORS.length, e: ICON_EYES.length, m: ICON_MOUTHS.length }[part];
+  const length = { colorIndex: ICON_COLORS.length, eyesIndex: ICON_EYES.length, mouthIndex: ICON_MOUTHS.length }[part];
   if (length) icon[part] = (icon[part] + direction + length) % length;
 }
 function buildFaceSvg(icon) {
   return '<svg viewBox="0 0 56 56" class="face" aria-hidden="true"><circle cx="28" cy="28" r="26" fill="' +
-    ICON_COLORS[icon.c] + '"/>' + ICON_EYES[icon.e] + ICON_MOUTHS[icon.m] + '</svg>';
+    ICON_COLORS[icon.colorIndex] + '"/>' + ICON_EYES[icon.eyesIndex] + ICON_MOUTHS[icon.mouthIndex] + '</svg>';
 }

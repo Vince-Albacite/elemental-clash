@@ -142,3 +142,8 @@ html.in_match,html.in_match body{overscroll-behavior:none}
 .env_layer{box-shadow:none;background:radial-gradient(circle at 50% 38%,var(--b),transparent 60%),radial-gradient(ellipse at 50% 50%,transparent 55%,var(--a) 135%);will-change:opacity;transform:translateZ(0)}
 .num{animation-timing-function:steps(24)}
 #hand_back .num,.card.locked .num{animation-play-state:paused}
+/* mini diagram sits beside the timer, out of the layout flow: no extra height, the playing field keeps its size */
+#timer_row{position:relative;display:flex;align-items:center;justify-content:center;min-height:1.9rem}
+#mini_cycle{position:absolute;left:calc(50% + 3rem);top:50%;transform:translateY(-50%);margin:0}
+.mini_cycle_svg{width:48px;height:auto;margin:0;display:block}
+.score.telegraph{box-shadow:0 0 10px var(--accent),0 0 22px var(--accent);border-color:var(--accent)}

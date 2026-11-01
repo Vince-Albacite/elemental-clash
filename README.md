@@ -26,10 +26,10 @@ No STUN or TURN server is used, so all devices must share the hotspot or Wi-Fi.
 
 ## Rule choices (js/config.js, js/scoring.js)
 - `WEAKNESS_OF_BY_NAME` in config.js: element -> the element that beats it. Currently red:blue, blue:brown, brown:green, green:red.
-- Weakness draw: thrown element is weak to the last card's element. Points = difference of the numbers, previous owner gets 0.2 x its number.
+- Weakness draw: thrown element is weak to the last card's element. Points = difference of the numbers, previous owner gets `WEAKNESS_BONUS_MULTIPLIER` x the point difference.
 - Boost: thrown element beats the last card's element, +1 point (`BOOST_POINTS`).
 - Throw rule: equal or higher number, a 0, or a weakness draw. Other cards are dimmed.
-- Deck: a failed draw never starts the cooldown; cooldown is DRAW_COOLDOWN_MS (800 ms) and shown as a draining filler; the button shows n/HAND_SIZE (10).
+- Deck: a failed draw never starts the cooldown; cooldown is `DRAW_COOLDOWN_MS` and shown as a draining filler; the button shows n/HAND_SIZE (10).
 - Everything in the How to Play screen (arrows, names, colors, numbers) is generated from js/config.js.
 - Colors: ELEMENT_COLORS in config.js. Countdown: COUNTDOWN_STAGES and COUNTDOWN_TOTAL_MS.
 - Music: js/audio.js TRACKS. Index 4 is the menu and lobby theme; all tracks are 16 steps of 0.25 s.
@@ -51,7 +51,21 @@ No STUN or TURN server is used, so all devices must share the hotspot or Wi-Fi.
 Two browsers can only connect directly if they swap their ICE credentials, the DTLS certificate fingerprint (SHA-256 = 256 bits) and an address with port. The fingerprint alone is about 43 characters, so the current ~90 character code is already close to the minimum. 6 characters hold about 31 to 36 bits. A 6 character room code only works with a lookup service that stores the full offer under that code (a server plus storage, or a third party broker). That conflicts with the Vercel-only, no-database rule.
 
 ## Match guard (js/guard.js)
-During a match the page blocks F5, Ctrl+R, Cmd+R, Alt+Left, Cmd+[, traps the Back button, disables pull-to-refresh and shows the browser's leave confirmation on reload or close. Browsers do not allow a page to truly disable these buttons; the confirmation can always be accepted.
+During a match the page blocks F5, Ctrl+R, Cmd+R, Alt+Left, Cmd+[, traps the Back button, disables pull-to-refresh and shows the browser's leave confirmation on reload or close. The same guard stays on for the results screen and ends when you leave it with the on-screen button. Browsers do not allow a page to truly disable these buttons; the confirmation can always be accepted.
 
 ## Performance limits (js/config.js)
 MAX_ACTIVE_TRACKS, MUSIC_SWITCH_MIN_MS, MAX_PARTICLES, EFFECT_MIN_GAP_MS, SNAPSHOT_COALESCE_MS, MAX_BUFFERED_BYTES.
+
+## Bot friction (js/config.js, js/bots.js)
+- `BOT_PACE_MULTIPLIER`: one number that scales every bot wait (reaction and action). 1 = unchanged, 1.5 = 50% slower, 0.5 = twice as fast.
+- Reaction delay: after any card is thrown, each bot waits a random time before it may act. Per bot: `reactionMs: [fastest, slowest]` in `BOT_PROFILES`; bots without it use `BOT_DEFAULT_REACTION_MS`.
+- Mistake logic (the unintended twin of the gamble): after a bot picks a throw, normal or gamble, `mistakeChance` (0..1) is the chance it throws a different random legal card instead. Bots without it use `BOT_DEFAULT_MISTAKE_CHANCE`.
+- `actDelayMs`, `randomness`, `riskTolerance`, `riskMinNumber` are unchanged.
+
+## Telegraph (the note before a throw)
+- A distinct gliding note, one pitch per player seat (`TELEGRAPH_NOTE_SEMITONES`, `TELEGRAPH_BASE_FREQUENCY`), plays on every human device (not the actor's) and the player's score box pulses.
+- Bots announce `BOT_TELEGRAPH_MS` before they throw. Humans announce when a swipe up passes the throw distance, before release (`HUMAN_WINDUP_TELEGRAPH`).
+- `TELEGRAPH_ON_DECK_DRAW` also announces bot deck draws. `TELEGRAPH_MIN_GAP_MS` limits repeats.
+
+## Code style
+No single-letter variable, parameter, object key or property names. Exceptions that are data, not variables: SVG attribute names, CSS custom property names, and the one-letter code tables in net.js that are part of the handshake code format.

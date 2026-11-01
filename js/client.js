@@ -1,30 +1,31 @@
 let clientPc = null, hostChannel = null;
-function sanitizeEvent(ev) {
-  return { seq: Number(ev.seq) || 0, pid: clampIndex(ev.pid, 4), e: clampIndex(ev.e, ELEMENT_COUNT), gain: Number(ev.gain) || 0,
-    bonus: Number(ev.bonus) || 0, bonusTo: clampIndex(ev.bonusTo, 4), weakness: ev.weakness === true, boost: ev.boost === true,
-    stack: Math.min(Math.max(1, Number(ev.stack) || 1), ADVANTAGE_STACK_MAX), wild: ev.wild === true };
+function sanitizeEvent(rawEvent) {
+  return { seq: Number(rawEvent.seq) || 0, playerId: clampIndex(rawEvent.playerId, 4), element: clampIndex(rawEvent.element, ELEMENT_COUNT), gain: Number(rawEvent.gain) || 0,
+    bonus: Number(rawEvent.bonus) || 0, bonusTo: clampIndex(rawEvent.bonusTo, 4), weakness: rawEvent.weakness === true, boost: rawEvent.boost === true,
+    stack: Math.min(Math.max(1, Number(rawEvent.stack) || 1), ADVANTAGE_STACK_MAX), wild: rawEvent.wild === true };
 }
-function sanitizeSnapshot(s) {
-  s.players = (Array.isArray(s.players) ? s.players : []).slice(0, 4).map(function (p) {
-    return { name: cleanName(p.name), icon: cleanIcon(p.icon), points: Number(p.points) || 0, used: Array.isArray(p.used) ? p.used.map(Number) : null };
+function sanitizeSnapshot(snapshot) {
+  snapshot.players = (Array.isArray(snapshot.players) ? snapshot.players : []).slice(0, 4).map(function (playerView) {
+    return { name: cleanName(playerView.name), icon: cleanIcon(playerView.icon), points: Number(playerView.points) || 0, used: Array.isArray(playerView.used) ? playerView.used.map(Number) : null };
   });
-  s.hand = (Array.isArray(s.hand) ? s.hand : []).slice(0, 40).map(function (c) { return { id: Number(c.id), n: clampIndex(c.n, CARD_NUMBER_MAX + 1), e: clampIndex(c.e, ELEMENT_COUNT) }; });
-  s.left = Number(s.left) || 0; s.me = clampIndex(s.me, 4);
-  s.startsInMs = Math.max(0, Number(s.startsInMs) || 0); s.event = s.event ? sanitizeEvent(s.event) : null;
-  if (s.last) s.last = { n: clampIndex(s.last.n, CARD_NUMBER_MAX + 1), e: clampIndex(s.last.e, ELEMENT_COUNT), owner: clampIndex(s.last.owner, 4) };
-  return s;
+  snapshot.hand = (Array.isArray(snapshot.hand) ? snapshot.hand : []).slice(0, 40).map(function (card) { return { id: Number(card.id), number: clampIndex(card.number, CARD_NUMBER_MAX + 1), element: clampIndex(card.element, ELEMENT_COUNT) }; });
+  snapshot.left = Number(snapshot.left) || 0; snapshot.myPlayerId = clampIndex(snapshot.myPlayerId, 4);
+  snapshot.startsInMs = Math.max(0, Number(snapshot.startsInMs) || 0); snapshot.event = snapshot.event ? sanitizeEvent(snapshot.event) : null;
+  if (snapshot.last) snapshot.last = { number: clampIndex(snapshot.last.number, CARD_NUMBER_MAX + 1), element: clampIndex(snapshot.last.element, ELEMENT_COUNT), owner: clampIndex(snapshot.last.owner, 4) };
+  return snapshot;
 }
 function sanitizeLobbyView(seats) {
-  return seats.slice(0, 4).map(function (s) { return s ? { name: cleanName(s.name), icon: cleanIcon(s.icon), ready: s.ready === true, bot: s.bot === true } : null; });
+  return seats.slice(0, 4).map(function (seat) { return seat ? { name: cleanName(seat.name), icon: cleanIcon(seat.icon), ready: seat.ready === true, bot: seat.bot === true } : null; });
 }
 function resetClientForLobby() {
   lastSeenEventSeq = 0; clientReady = false; getEl('btn_ready').textContent = 'Ready'; showScreen('lobby');
 }
 function receiveHostMessage(raw) {
   const msg = parseIncomingJson(raw); if (!msg) return;
-  if (msg.t === 'lobby' && Array.isArray(msg.seats)) { if (msg.back === true) resetClientForLobby(); renderLobby(sanitizeLobbyView(msg.seats), clampIndex(msg.you, 4), false); }
-  else if (msg.t === 'snap' && msg.s) renderSnapshot(sanitizeSnapshot(msg.s));
-  else if (msg.t === 'closed') leaveToMenuWithNotice('The host closed the room');
+  if (msg.type === 'lobby' && Array.isArray(msg.seats)) { if (msg.back === true) resetClientForLobby(); renderLobby(sanitizeLobbyView(msg.seats), clampIndex(msg.you, 4), false); }
+  else if (msg.type === 'snap' && msg.snapshot) renderSnapshot(sanitizeSnapshot(msg.snapshot));
+  else if (msg.type === 'closed') leaveToMenuWithNotice('The host closed the room');
+  else if (msg.type === 'telegraph') showTelegraphCue(clampIndex(msg.playerId, 4));
 }
 function resetJoinForm() {
   ['join_offer', 'join_answer'].forEach(function (id) { getEl(id).value = ''; });
@@ -35,33 +36,33 @@ function leaveToMenuWithNotice(text) {
   cancelCountdown(); resetJoinForm(); showScreen('menu'); showNotice(text);
 }
 function leaveClientRoom() {
-  const ch = hostChannel, pc = clientPc;
+  const channel = hostChannel, peerConnection = clientPc;
   sessionMode = 'menu'; hostChannel = null; sendIntentToHost = function () {};
-  if (ch) sendJson(ch, { t: 'leave' });
-  setTimeout(function () { if (ch) ch.close(); if (pc) pc.close(); }, 150);
+  if (channel) sendJson(channel, { type: 'leave' });
+  setTimeout(function () { if (channel) channel.close(); if (peerConnection) peerConnection.close(); }, 150);
   resetJoinForm(); showScreen('menu');
 }
-function initHostChannel(ch) {
-  hostChannel = ch; sessionMode = 'client';
-  sendIntentToHost = function (intent) { sendJson(ch, intent); };
-  sendJson(ch, { t: 'hello', name: playerProfile.name, icon: playerProfile.icon });
+function initHostChannel(channel) {
+  hostChannel = channel; sessionMode = 'client';
+  sendIntentToHost = function (intent) { sendJson(channel, intent); };
+  sendJson(channel, { type: 'hello', name: playerProfile.name, icon: playerProfile.icon });
   showScreen('lobby');
 }
-function onHostChannelReady(ch) {
-  ch.onmessage = function (ev) { receiveHostMessage(ev.data); };
-  ch.onclose = function () { if (sessionMode === 'client') leaveToMenuWithNotice('Disconnected from the host'); };
-  ch.onopen = function () { initHostChannel(ch); };
-  if (ch.readyState === 'open') initHostChannel(ch);
+function onHostChannelReady(channel) {
+  channel.onmessage = function (messageEvent) { receiveHostMessage(messageEvent.data); };
+  channel.onclose = function () { if (sessionMode === 'client') leaveToMenuWithNotice('Disconnected from the host'); };
+  channel.onopen = function () { initHostChannel(channel); };
+  if (channel.readyState === 'open') initHostChannel(channel);
 }
 async function makeAnswerForHostCode() {
   const status = getEl('join_status'); status.textContent = 'Working...';
   try {
-    const r = await acceptOfferAndCreateAnswer(getEl('join_offer').value, onHostChannelReady);
-    clientPc = r.pc; getEl('join_answer').value = r.code; status.textContent = 'Send this answer code to the host.';
-  } catch (e) { status.textContent = 'Invalid host code'; }
+    const answerResult = await acceptOfferAndCreateAnswer(getEl('join_offer').value, onHostChannelReady);
+    clientPc = answerResult.peerConnection; getEl('join_answer').value = answerResult.code; status.textContent = 'Send this answer code to the host.';
+  } catch (error) { status.textContent = 'Invalid host code'; }
 }
 let clientReady = false;
 function toggleReadyState() {
   clientReady = !clientReady; getEl('btn_ready').textContent = clientReady ? 'Not Ready' : 'Ready';
-  sendIntentToHost({ t: 'ready', v: clientReady });
+  sendIntentToHost({ type: 'ready', isReady: clientReady });
 }

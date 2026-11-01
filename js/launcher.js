@@ -1,6 +1,6 @@
 const SCREEN_FILES = ['overlays', 'menu', 'mp', 'join', 'lobby', 'solo', 'guide', 'game', 'results'];
 function fetchScreenHtml(name) {
-  return fetch('screens/' + name + '.html').then(function (r) { if (!r.ok) throw new Error('missing ' + name); return r.text(); });
+  return fetch('screens/' + name + '.html').then(function (response) { if (!response.ok) throw new Error('missing ' + name); return response.text(); });
 }
 function insertScreens(parts) { getEl('app').innerHTML = parts.join('\n'); }
 function showLaunchError() {

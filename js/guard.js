@@ -1,22 +1,22 @@
-/* Browsers never let a page disable their own buttons, so during a match we do everything a page can:
+/* Browsers never let a page disable their own buttons, so during a match and on the results screen we do everything a page can:
    block the shortcuts, trap the Back button, stop pull-to-refresh (CSS .in_match) and ask before reload or close. */
 let matchGuardOn = false;
-function readKey(e) { return String(e.key || '').toLowerCase(); }
-function isReloadShortcut(e) { return readKey(e) === 'f5' || ((e.ctrlKey || e.metaKey) && readKey(e) === 'r'); }
-function isBackShortcut(e) { return (e.altKey && readKey(e) === 'arrowleft') || (e.metaKey && (readKey(e) === '[' || readKey(e) === 'arrowleft')); }
-function onMatchKeyDown(e) {
-  if (!matchGuardOn || !(isReloadShortcut(e) || isBackShortcut(e))) return;
-  e.preventDefault(); showNotice('Reload and Back are disabled during a match.');
+function readKey(keyEvent) { return String(keyEvent.key || '').toLowerCase(); }
+function isReloadShortcut(keyEvent) { return readKey(keyEvent) === 'f5' || ((keyEvent.ctrlKey || keyEvent.metaKey) && readKey(keyEvent) === 'r'); }
+function isBackShortcut(keyEvent) { return (keyEvent.altKey && readKey(keyEvent) === 'arrowleft') || (keyEvent.metaKey && (readKey(keyEvent) === '[' || readKey(keyEvent) === 'arrowleft')); }
+function onMatchKeyDown(keyEvent) {
+  if (!matchGuardOn || !(isReloadShortcut(keyEvent) || isBackShortcut(keyEvent))) return;
+  keyEvent.preventDefault(); showNotice('Reload and Back are disabled here. Use the on-screen button to leave.');
 }
 function onMatchPopState() {
   if (!matchGuardOn) return;
-  history.pushState({ match: true }, '', location.href); showNotice('Back is disabled during a match.');
+  history.pushState({ match: true }, '', location.href); showNotice('Back is disabled here. Use the on-screen button to leave.');
 }
-function onMatchBeforeUnload(e) {
+function onMatchBeforeUnload(unloadEvent) {
   if (!matchGuardOn) return undefined;
-  e.preventDefault(); e.returnValue = ''; return '';
+  unloadEvent.preventDefault(); unloadEvent.returnValue = ''; return '';
 }
-function onMatchContextMenu(e) { if (matchGuardOn) e.preventDefault(); }
+function onMatchContextMenu(contextMenuEvent) { if (matchGuardOn) contextMenuEvent.preventDefault(); }
 function enableMatchGuard() {
   if (matchGuardOn) return;
   matchGuardOn = true;

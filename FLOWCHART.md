@@ -1,4 +1,4 @@
-# Elemental Clash - before and after (freeze, fixed hand layout, lag, hints, match guard)
+# Elemental Clash - before and after (bot friction, telegraph, mini diagram, naming, results guard)
 
 Only the flows touched by this update are drawn.
 
@@ -6,23 +6,28 @@ Only the flows touched by this update are drawn.
 
 ```mermaid
 flowchart TD
-  G1["ui.js : onHandPointerDown<br/>if dragState is set, return<br/>dragState cleared only by pointerup or pointercancel reaching #hand"] --> G2["lost pointerup : card moved or removed, setPointerCapture throws, context menu, blur<br/>dragState stays set, every later swipe is ignored"]
-  L1["#hand height depends on its cards<br/>empty front row = hand collapses, the whole match layout shifts"]
-  P1["host.js : pushSnapshots per throw, per bot draw<br/>no send backlog check, a slow link delivers a burst"] --> P2["ui.js : showEventEffects on every event<br/>switchMusicToElement each throw, up to 4 tracks scheduled<br/>burst dots, sounds, env fade, pile card rebuilt on every snapshot"]
-  P3["style.css : .env_layer 140 px blurred inset shadow, .num 60 fps clipped text animation"]
-  X1["no hints, no protection of Back or Reload during a match"]
+  B1["bots.js : stepBots<br/>acts as soon as nextActAt passes, even right after a card was thrown<br/>always the best card, no mistakes, no announcement"]
+  T1["no sound before a bot or a remote player throws"]
+  M1["game.html : timer, then mini_cycle as its own row<br/>adds height and a 10 px gap, the playing field is pushed"]
+  G1["ui.js : showScreen<br/>enableMatchGuard only on the game screen, results screen is unprotected"]
+  N1["single letter names : card.n, card.e, icon.c e m, msg.t s v, locals i e p a b ..."]
 ```
 
 ## AFTER
 
 ```mermaid
 flowchart TD
-  G1["ui.js : attachHandGestures<br/>pointerdown on #hand, pointermove, pointerup, pointercancel, blur and visibilitychange on window"] --> G2["ui.js : onHandPointerDown<br/>ignores right click, resets any stale dragState, setPointerCapture in try and catch"]
-  G2 --> G3["ui.js : onHandPointerUp<br/>dy under -60 : throwDraggedCard, dy over 60 : swapHandStacks"]
-  G3 -->|"back row card swiped up"| H1["ui.js : showHint HINT_TEXTS.backRow<br/>semi-opaque #hint fades in, fades out after HINT_VISIBLE_MS"]
-  R1["ui.js : renderGameScreen<br/>To ui.js : checkOutOfCardsHint in order to fade in the out-of-cards hint when the hand goes from 1 or more to 0"] --> H1
-  L1["style.css : #hand fixed height card + peek, rows absolutely pinned<br/>layout identical with 0 to 10 cards"]
-  P1["host.js : pushSnapshots<br/>To host.js : sendSnapshotTo in order to skip a stale snapshot when bufferedAmount is over MAX_BUFFERED_BYTES, final snapshot always sent<br/>bot draws go through requestSnapshotPush, one snapshot per 80 ms"] -->|"json t snap"| P2["ui.js : showEventEffects<br/>popups and glow always, sounds and bursts at most once per EFFECT_MIN_GAP_MS, particles capped at MAX_PARTICLES"]
-  P2 --> P4["audio.js : requestMusicElement<br/>one track change per MUSIC_SWITCH_MIN_MS, scheduleStepOnTracks plays only the loudest MAX_ACTIVE_TRACKS"]
-  P5["ui.js : renderPileCard<br/>rebuilds only when n or e changes, style.css : env layers are gradients on their own compositor layer, .num shimmer at 10 fps and paused for back row and locked cards"]
-  M1["ui.js : showScreen id<br/>To guard.js : enableMatchGuard on game, disableMatchGuard elsewhere"] --> M2["guard.js : onMatchKeyDown blocks F5, Ctrl+R, Cmd+R, Alt+Left, Cmd+[<br/>onMatchPopState pushes history again, onMatchBeforeUnload asks before reload or close<br/>style.css html.in_match disables pull-to-refresh"]
+  C0["config.js : BOT_PACE_MULTIPLIER, BOT_DEFAULT_REACTION_MS, BOT_DEFAULT_MISTAKE_CHANCE, BOT_TELEGRAPH_MS, per profile reactionMs and mistakeChance"] --> B2
+  B2["bots.js : stepBots state, nowMs, botHandlers<br/>noticeBoardChange sets reactionReadyAt after any thrown card<br/>acts only when nowMs passes nextActAt and reactionReadyAt"] --> B3["bots.js : decideBotMove<br/>gamble via findRiskThrow, then applyMistake : mistakeChance picks another random legal card"]
+  B3 -->|"move cardId"| B4["bots.js : startBotMove<br/>To host.js : announceTelegraph in order to signal, pendingMove waits BOT_TELEGRAPH_MS"]
+  B4 --> B5["bots.js : runPendingMove<br/>To host.js : enqueueThrow in order to throw the card"]
+  H1["ui.js : sendWindupSignalOnce<br/>front row card swiped past SWIPE_THROW_PX before release<br/>json type windup"] -->|"to host"| H2["host.js : receiveIntentFromPlayer<br/>To host.js : announceTelegraph in order to alert the other humans"]
+  B4 --> H3["host.js : announceTelegraph playerId<br/>skips the actor and bots, TELEGRAPH_MIN_GAP_MS limit"]
+  H2 --> H3
+  H3 -->|"json type telegraph, playerId"| H4["client.js : receiveHostMessage<br/>To ui.js : showTelegraphCue in order to pulse the score box and play the note"]
+  H3 -->|"host device"| H5["ui.js : showTelegraphCue playerId<br/>To audio.js : playTelegraphSignal in order to play a gliding note, one pitch per seat"]
+  H4 --> H5
+  U1["game.html : timer_row with mini_cycle absolutely positioned beside the timer<br/>zero layout height, 48 px wide, margins removed"]
+  G1["ui.js : showScreen<br/>enableMatchGuard on game and results, disableMatchGuard on every other screen"]
+  N1["refactor : every variable, parameter, object key and property uses a full word<br/>card.number, card.element, icon.colorIndex, eyesIndex, mouthIndex, message.type, snapshot, isReady, playerId"]
+```
